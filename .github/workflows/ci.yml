@@ -17,7 +17,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---- Зависимости ----
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y cmake g++
@@ -30,13 +29,32 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-      # ---- Сборка ----
+      # ==========================================
+      # БЛОК КЭШИРОВАНИЯ 
+      # ==========================================
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ matrix.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            ${{ matrix.os }}-cmake-deps-
+
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
 
-      # ---- Тесты ----
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      # ==========================================
+      # БЛОК АРТЕФАКТОВ 
+      # ==========================================
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.os }}
+          path: build/Testing/
